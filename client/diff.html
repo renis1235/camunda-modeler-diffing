@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BPMN Diff</title>
+</head>
+<body>
+
+<!-- Header -->
+<div id="header">
+    <span id="app-title">BPMN Diff View</span>
+    <div id="header-actions">
+        <button id="btn-export" disabled title="Load a target file first">&#x1F4E4; Export&hellip;</button>
+        <button id="btn-close">&#x2715; Close</button>
+    </div>
+</div>
+
+<!-- Error banner (hidden by default) -->
+<div id="error-banner" style="display:none">
+    <span id="error-msg"></span>
+    <button id="btn-dismiss-error" aria-label="Dismiss error">&#x2715;</button>
+</div>
+
+<!-- Two-column area: [Left pane] | [Right pane] -->
+<div id="panes">
+
+    <!-- Left / Base pane -->
+    <div class="pane" id="left-pane">
+        <div class="pane-header" id="left-label">Base</div>
+        <div class="pane-content">
+            <div id="left-canvas" class="bpmn-canvas"></div>
+        </div>
+    </div>
+
+    <!-- Right / Target pane -->
+    <div class="pane" id="right-pane">
+        <div class="pane-header" id="right-header">Target &#x2014; drop a .bpmn file</div>
+        <div class="pane-content">
+            <div id="right-canvas" class="bpmn-canvas" style="display:none"></div>
+            <div id="drop-zone">
+                <div class="drop-zone-icon">&#x1F4C2;</div>
+                <div class="drop-zone-text">Drop a .bpmn file here</div>
+                <div class="drop-zone-hint">or click to browse</div>
+                <input type="file" id="file-input" accept=".bpmn,.xml">
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Changes drawer (collapsed by default, auto-expands after diff) -->
+<div id="changes-panel" class="collapsed">
+    <div id="changes-header">
+        <button id="changes-toggle" title="Show changes">&#9650;</button>
+        <span id="changes-title">Changes</span>
+    </div>
+    <div id="changes-body">
+        <p id="changes-placeholder">Load a target file to see changes.</p>
+        <div id="changes-sections" style="display:none"></div>
+    </div>
+</div>
+
+<!-- Loading indicator (hidden by default) -->
+<div id="loading" style="display:none">Analysing differences&#x2026;</div>
+
+<!-- Legend (hidden until diff is ready) -->
+<div id="legend" style="display:none">
+    <span class="legend-label">Changes:</span>
+    <span class="legend-item"><span class="swatch swatch-added"></span>Added</span>
+    <span class="legend-item"><span class="swatch swatch-removed"></span>Removed</span>
+    <span class="legend-item"><span class="swatch swatch-changed"></span>Changed</span>
+    <span class="legend-sep">|</span>
+    <span class="legend-label">Impact:</span>
+    <span class="legend-item"><span class="impact-swatch ci-impact-structural">S</span>Structural</span>
+    <span class="legend-item"><span class="impact-swatch ci-impact-semantic">M</span>Semantic</span>
+    <span class="legend-item"><span class="impact-swatch ci-impact-visual">V</span>Visual</span>
+</div>
+
+<script src="diff.bundle.js"></script>
+</body>
+</html>
