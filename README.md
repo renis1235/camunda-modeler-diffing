@@ -17,7 +17,7 @@ are highlighted with color-coded overlays and both canvases scroll and zoom in p
 - **Color-coded diff** — Added (green), Removed (red), Modified (blue), Repositioned (blue)
 - **Synchronized navigation** — scroll or zoom either pane and the other mirrors it instantly
 - **File picker & drag-and-drop** — drop a `.bpmn` or `.xml` file onto the right pane to start the comparison
-- **Git integration** — compare the current file against HEAD or HEAD~1 via the Plugins menu
+- **Git integration** — compare the current file against HEAD or Previous Revision via the Plugins menu
 - **Export** — save the diff as PDF or PNG
 - **View-only / static snapshot** — safe read-only mode, no changes are written back to your files
 
@@ -36,16 +36,16 @@ are highlighted with color-coded overlays and both canvases scroll and zoom in p
 No Node.js or build step required.
 
 1. Go to the [latest release](https://github.com/renis1235/camunda-modeler-diffing/releases/latest).
-2. Download `bpmn-diff-plugin.zip`.
-3. Extract the zip and copy the `bpmn-diff-plugin` folder into the Camunda Modeler plugins directory:
+2. Download the `zip` file.
+3. Extract the zip and copy the folder into the Camunda Modeler plugins directory:
 
    | OS | Plugins directory |
-      |---|---|
+         |---|---|
    | macOS | `~/Library/Application Support/camunda-modeler/plugins/` |
    | Windows | `%APPDATA%\camunda-modeler\plugins\` |
    | Linux | `~/.config/camunda-modeler/plugins/` |
 
-4. **Restart** the Camunda Modeler.
+4. **Restart** Camunda Modeler.
 
 > The plugins folder may not exist yet — create it if needed.
 
