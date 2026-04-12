@@ -40,7 +40,7 @@ No Node.js or build step required.
 3. Extract the zip and copy the folder into the Camunda Modeler plugins directory:
 
    | OS | Plugins directory |
-         |---|---|
+      |---|---|
    | macOS | `~/Library/Application Support/camunda-modeler/plugins/` |
    | Windows | `%APPDATA%\camunda-modeler\plugins\` |
    | Linux | `~/.config/camunda-modeler/plugins/` |
