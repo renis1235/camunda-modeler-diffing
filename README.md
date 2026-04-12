@@ -21,6 +21,7 @@ are highlighted with color-coded overlays and both canvases scroll and zoom in p
 - **Export** — save the diff as PDF or PNG
 - **View-only / static snapshot** — safe read-only mode, no changes are written back to your files
 
+![Differ Screenshot](./img/differ-sc.png)
 ---
 
 ## Requirements
