@@ -1,5 +1,7 @@
 'use strict';
 
+const {log, error} = require("./log-utils");
+
 // ─── Shared menu-process utilities ────────────────────────────────────────────
 
 // ─── Diff window singleton ────────────────────────────────────────────────────
@@ -36,9 +38,11 @@ function getMainWindow(BrowserWindow) {
  */
 function openDiffWindow(BrowserWindow, htmlPath, title) {
     if (_currentDiffWin && !_currentDiffWin.isDestroyed()) {
+        log('openDiffWindow: closing existing diff window', 'warning');
         _currentDiffWin.close();
     }
 
+    log(`openDiffWindow: creating window — title: "${title}", htmlPath: ${htmlPath}`);
     const win = new BrowserWindow({
         width: 1400, height: 860, minWidth: 800, minHeight: 500,
         title,
@@ -51,6 +55,7 @@ function openDiffWindow(BrowserWindow, htmlPath, title) {
         // _currentDiffWin already points to a newer window — don't overwrite it.
         if (_currentDiffWin === win) {
             _currentDiffWin = null;
+            log('openDiffWindow: diff window closed, singleton cleared');
         }
     });
 
@@ -102,15 +107,25 @@ async function probeActiveFilePath(mainWin, electronApp) {
             })()`
         );
         if (fromDom) {
+            log(`probeActiveFilePath: found via DOM probe: ${fromDom}`);
             return fromDom;
         }
-    } catch (_) { /* DOM probe failed — continue to next attempt */
+        log('probeActiveFilePath: DOM probe returned null, falling back to recent docs', 'warning');
+    } catch (e) { /* DOM probe failed — continue to next attempt */
+        error(`probeActiveFilePath: DOM probe threw: ${e && e.message ? e.message : String(e)}`);
     }
 
     // Attempt 2: use the most recently opened .bpmn file from Electron's recent docs.
     const recentDocs = electronApp.getRecentDocuments ? electronApp.getRecentDocuments() : [];
+    log(`probeActiveFilePath: recent docs (${recentDocs.length} total): ${recentDocs.join(', ') || '(none)'}`);
     const recentBpmn = recentDocs.filter(p => /\.bpmn$/i.test(p));
-    return recentBpmn.length > 0 ? recentBpmn[0] : null;
+    const fromRecentDocs = recentBpmn.length > 0 ? recentBpmn[0] : null;
+    if (fromRecentDocs) {
+        log(`probeActiveFilePath: found via recent docs: ${fromRecentDocs}`);
+    } else {
+        log('probeActiveFilePath: no .bpmn file found in recent docs', 'warning');
+    }
+    return fromRecentDocs;
 }
 
 module.exports = {probeActiveFilePath, getMainWindow, openDiffWindow};

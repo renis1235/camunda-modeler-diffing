@@ -3,6 +3,7 @@
 const {registerExportHandler} = require('./export-handler');
 const {compareWithGitRef, PREV_FILE_REVISION} = require('./git-compare');
 const {probeActiveFilePath, getMainWindow, openDiffWindow} = require('./bpmn-utils');
+const {init: initLog} = require('./log-utils');
 
 // Register the export IPC handler once at module load.
 // The function is idempotent and safe to call on every require().
@@ -19,6 +20,7 @@ registerExportHandler();
  * @returns {Array}  Menu item descriptors.
  */
 module.exports = function (electronApp, menuState) {
+    initLog(electronApp);
     return [
         {
             label: 'Compare With\u2026',

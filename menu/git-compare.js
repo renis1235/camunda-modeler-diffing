@@ -5,6 +5,7 @@ const {exec} = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const {probeActiveFilePath, openDiffWindow} = require('./bpmn-utils');
+const {log, error} = require('./log-utils');
 
 const execAsync = promisify(exec);
 const readFileAsync = promisify(fs.readFile);
@@ -35,10 +36,15 @@ const PREV_FILE_REVISION = Symbol('PREV_FILE_REVISION');
 async function compareWithGitRef(mainWin, electronApp, ref, refLabel) {
     const {dialog, BrowserWindow} = require('electron');
 
+    log(`compareWithGitRef called — ref: ${String(ref)}, refLabel: ${refLabel}`);
+
     const filePath = await probeFilePath(mainWin, electronApp, dialog);
     if (!filePath) {
-        return; // user cancelled the picker
+        log('compareWithGitRef: no file path resolved, aborting', 'warning');
+        return; // e.g. user cancelled the picker
     }
+
+    log(`compareWithGitRef: resolved file path: ${filePath}`);
 
     const fileName = path.basename(filePath);
     const dir = path.dirname(filePath);
@@ -46,11 +52,17 @@ async function compareWithGitRef(mainWin, electronApp, ref, refLabel) {
     try {
         const relPath = await getTrackedRelPath(fileName, dir);
         const {resolvedRef, resolvedLabel} = await resolveGitRef(ref, refLabel, relPath, dir, fileName);
+        log(`compareWithGitRef: resolved ref "${resolvedRef}", label "${resolvedLabel}"`);
+
         const {stdout: baseXML} = await readGitFileAtRef(resolvedRef, relPath, resolvedLabel, fileName, dir);
+        log(`compareWithGitRef: base XML read, length: ${baseXML.length}`);
+
         const currentXML = await readFileAsync(filePath, 'utf8');
+        log(`compareWithGitRef: current XML read, length: ${currentXML.length}`);
 
         launchDiffWindow(BrowserWindow, {baseXML, currentXML, fileName, resolvedLabel});
     } catch (err) {
+        error(`compareWithGitRef failed: ${err.message || String(err)}`);
         dialog.showErrorBox('BPMN Diff', err.message || String(err));
     }
 }
@@ -68,18 +80,26 @@ async function compareWithGitRef(mainWin, electronApp, ref, refLabel) {
  * @returns {Promise<string|null>}  Absolute file path, or null if the user cancelled.
  */
 async function probeFilePath(mainWin, electronApp, dialog) {
+    log('probeFilePath: probing active file path...');
     const filePath = await probeActiveFilePath(mainWin, electronApp);
     if (filePath) {
+        log(`probeFilePath: found via probe: ${filePath}`);
         return filePath;
     }
 
+    log('probeFilePath: probe returned null, opening file picker dialog', 'warning');
     // Attempt 3: ask the user to pick the file manually.
     const result = await dialog.showOpenDialog({
         title: 'Select the BPMN file to compare',
         filters: [{name: 'BPMN files', extensions: ['bpmn', 'xml']}],
         properties: ['openFile']
     });
-    return result.canceled ? null : (result.filePaths[0] || null);
+    if (result.canceled) {
+        log('probeFilePath: user cancelled the file picker', 'warning');
+        return null;
+    }
+    log(`probeFilePath: user picked: ${result.filePaths[0]}`);
+    return result.filePaths[0] || null;
 }
 
 // ─── Step 2: verify git tracking ─────────────────────────────────────────────
@@ -94,10 +114,10 @@ async function probeFilePath(mainWin, electronApp, dialog) {
  * @returns {Promise<string>}  e.g. 'src/processes/order.bpmn'
  */
 async function getTrackedRelPath(fileName, dir) {
-    const {stdout} = await execAsync(
-        'git ls-files --full-name ' + JSON.stringify(fileName),
-        {cwd: dir}
-    ).catch(() => {
+    const cmd = 'git ls-files --full-name ' + JSON.stringify(fileName);
+    log(`getTrackedRelPath: running: ${cmd} (cwd: ${dir})`);
+
+    const {stdout} = await execAsync(cmd, {cwd: dir}).catch(() => {
         throw new Error(
             `${dir}/${fileName} is not tracked by git.\n` +
             `Make sure the file is inside a git repository and has been committed at least once.`
@@ -110,7 +130,9 @@ async function getTrackedRelPath(fileName, dir) {
             `Make sure the file is inside a git repository and has been committed at least once.`
         );
     }
-    return stdout.trim();
+    const relPath = stdout.trim();
+    log(`getTrackedRelPath: repo-relative path: ${relPath}`);
+    return relPath;
 }
 
 // ─── Step 3: resolve the git ref to a concrete SHA ───────────────────────────
@@ -125,34 +147,45 @@ async function getTrackedRelPath(fileName, dir) {
  * @param {string|symbol} ref
  * @param {string}        refLabel
  * @param {string}        relPath   Repo-relative path of the file.
- * @param {string}        dir       Git working directory.
- * @param {string}        fileName  Used in error messages.
+ * @param {string}        dir       Directory containing the file (used as git cwd).
+ * @param {string}        fileName  Name of the bpmn file.
  * @returns {Promise<{ resolvedRef: string, resolvedLabel: string }>}
  */
 async function resolveGitRef(ref, refLabel, relPath, dir, fileName) {
     if (ref !== PREV_FILE_REVISION) {
+        log(`resolveGitRef: using ref "${ref}" as-is`);
         return {resolvedRef: ref, resolvedLabel: refLabel};
     }
 
+    log('resolveGitRef: PREV_FILE_REVISION — finding previous commit for this file');
+
     // --follow: follows renames so history is preserved even if the file was moved.
-    const {stdout} = await execAsync(
-        `git log --follow -n 2 --pretty=format:"%H" -- ${relPath}`,
-        {cwd: dir}
-    ).catch(() => {
+    const cmd = `git log --follow -n 2 --pretty=format:"%H" -- ${JSON.stringify(fileName)}`;
+    log(`resolveGitRef: running: ${cmd} (cwd: ${dir})`);
+
+    const {stdout} = await execAsync(cmd, {cwd: dir}).catch((err) => {
+        error(`resolveGitRef: git log failed: ${err.message || String(err)}`);
         throw new Error(`Could not find a previous revision of ${fileName}: git log failed.`);
     });
 
+    log(`resolveGitRef: git log raw output:\n"${stdout.trim()}"`);
+
     if (!stdout.trim()) {
+        error(`resolveGitRef: git log returned empty output — no commit history for ${relPath}`);
         throw new Error(`Could not find a previous revision of ${fileName}: no commit history.`);
     }
 
-    const hashes = stdout.trim().split('\n');
+    const hashes = stdout.trim().split('\n').map(h => h.trim());
+    log(`resolveGitRef: found ${hashes.length} commit(s): ${hashes.join(', ')}`);
+
     if (hashes.length < 2) {
+        error(`resolveGitRef: only ${hashes.length} commit found — cannot get previous revision`);
         throw new Error(`No previous revision — ${fileName} has only one commit.`);
     }
 
     // hashes[0] = most recent commit, hashes[1] = the commit before it
-    const hash = hashes[1].trim();
+    const hash = hashes[1];
+    log(`resolveGitRef: selected previous revision hash: ${hash}`);
     return {resolvedRef: hash, resolvedLabel: `prev revision (${hash.slice(0, 7)})`};
 }
 
@@ -169,10 +202,10 @@ async function resolveGitRef(ref, refLabel, relPath, dir, fileName) {
  * @returns {Promise<{ stdout: string }>}
  */
 async function readGitFileAtRef(resolvedRef, relPath, resolvedLabel, fileName, dir) {
-    return execAsync(
-        `git show ${resolvedRef}:${relPath}`,
-        {cwd: dir, maxBuffer: 10 * 1024 * 1024}
-    ).catch(err => {
+    const cmd = `git show ${resolvedRef}:${relPath}`;
+    log(`readGitFileAtRef: running: ${cmd} (cwd: ${dir})`);
+    return execAsync(cmd, {cwd: dir, maxBuffer: 10 * 1024 * 1024}).catch(err => {
+        error(`readGitFileAtRef failed: ${err.message || String(err)}`);
         throw new Error(
             `Could not read ${resolvedLabel} version of ${fileName}:\n` +
             (err.message || String(err))
@@ -192,13 +225,18 @@ async function readGitFileAtRef(resolvedRef, relPath, resolvedLabel, fileName, d
 function launchDiffWindow(BrowserWindow, {baseXML, currentXML, fileName, resolvedLabel}) {
     const htmlPath = path.join(__dirname, '..', 'client', 'diff.html');
     const title = `BPMN Diff \u2014 ${fileName} (${resolvedLabel} vs working tree)`;
+    const baseName = `${resolvedLabel} \u2014 ${fileName}`;
+    const targetName = `Working tree \u2014 ${fileName}`;
+    log(`launchDiffWindow: opening "${title}"`);
+    log(`launchDiffWindow: base="${baseName}", target="${targetName}"`);
     const diffWin = openDiffWindow(BrowserWindow, htmlPath, title);
     diffWin.webContents.once('did-finish-load', function () {
+        log('launchDiffWindow: window loaded, sending bpmn-diff:init');
         diffWin.webContents.send('bpmn-diff:init', {
             baseXML,
-            baseName: `${resolvedLabel} \u2014 ${fileName}`,
+            baseName,
             targetXML: currentXML,
-            targetName: `Working tree \u2014 ${fileName}`,
+            targetName,
             fileName: fileName.replace(/\.[^.]+$/, '')
         });
     });

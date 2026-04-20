@@ -60,6 +60,14 @@ function registerExportHandler() {
 
         let outBuffer;
         if (isPng) {
+            // Resize to actual content dimensions so capturePage() captures the full page,
+            // not just the initial viewport (which clips wide/tall diagrams).
+            const {cw, ch} = await win.webContents.executeJavaScript(
+                '({ cw: document.documentElement.scrollWidth, ch: document.documentElement.scrollHeight })'
+            );
+            if (cw > 0 && ch > 0) {
+                win.setSize(cw, ch);
+            }
             const image = await win.webContents.capturePage();
             outBuffer = image.toPNG();
         } else {
