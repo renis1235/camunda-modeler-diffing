@@ -1,6 +1,6 @@
 {
   "name": "camunda-modeler-bpmn-diff-plugin",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Side-by-side visual BPMN 2.0 diff plugin for Camunda Modeler",
   "main": "index.js",
   "scripts": {
