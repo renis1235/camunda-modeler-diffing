@@ -14,17 +14,23 @@ import { state } from './diff-state.js';
  */
 export function applyMarkers(diffResult) {
     const lc = state.leftViewer.get('canvas');
+    const lReg = state.leftViewer.get('elementRegistry');
     const rc = state.rightViewer.get('canvas');
+    const rReg = state.rightViewer.get('elementRegistry');
 
-    Object.keys(diffResult._removed || {}).forEach(id => lc.addMarker(id, 'diff-removed'));
-    Object.keys(diffResult._added || {}).forEach(id => rc.addMarker(id, 'diff-added'));
+    Object.keys(diffResult._removed || {}).forEach(id => {
+        if (lReg.get(id)) lc.addMarker(id, 'diff-removed');
+    });
+    Object.keys(diffResult._added || {}).forEach(id => {
+        if (rReg.get(id)) rc.addMarker(id, 'diff-added');
+    });
     Object.keys(diffResult._changed || {}).forEach(id => {
-        lc.addMarker(id, 'diff-changed');
-        rc.addMarker(id, 'diff-changed');
+        if (lReg.get(id)) lc.addMarker(id, 'diff-changed');
+        if (rReg.get(id)) rc.addMarker(id, 'diff-changed');
     });
     Object.keys(diffResult._layoutChanged || {}).forEach(id => {
-        lc.addMarker(id, 'diff-layout');
-        rc.addMarker(id, 'diff-layout');
+        if (lReg.get(id)) lc.addMarker(id, 'diff-layout');
+        if (rReg.get(id)) rc.addMarker(id, 'diff-layout');
     });
 }
 

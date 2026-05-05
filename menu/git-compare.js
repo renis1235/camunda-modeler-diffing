@@ -117,16 +117,17 @@ async function getTrackedRelPath(fileName, dir) {
     const cmd = 'git ls-files --full-name ' + JSON.stringify(fileName);
     log(`getTrackedRelPath: running: ${cmd} (cwd: ${dir})`);
 
-    const {stdout} = await execAsync(cmd, {cwd: dir}).catch(() => {
+    const {stdout} = await execAsync(cmd, {cwd: dir}).catch((e) => {
+        log(`getTrackedRelPath: command failed: ${e.message || String(e)}`);
         throw new Error(
-            `${dir}/${fileName} is not tracked by git.\n` +
+            `Command failed: ${dir}/${fileName} is not tracked by git.\n` +
             `Make sure the file is inside a git repository and has been committed at least once.`
         );
     });
 
     if (!stdout.trim()) {
         throw new Error(
-            `${dir}/${fileName} is not tracked by git.\n` +
+            `Command executed, but output is empty: ${dir}/${fileName} is not tracked by git.\n` +
             `Make sure the file is inside a git repository and has been committed at least once.`
         );
     }
@@ -197,12 +198,12 @@ async function resolveGitRef(ref, refLabel, relPath, dir, fileName) {
  * @param {string} resolvedRef    SHA or ref string.
  * @param {string} relPath        Repo-relative path.
  * @param {string} resolvedLabel  Human-readable label for error messages.
- * @param {string} fileName       Basename for error messages.
- * @param {string} dir            Git working directory.
+ * @param {string} fileName       Name of the bpmn file.
+ * @param {string} dir            Directory containing the file (used as git cwd).
  * @returns {Promise<{ stdout: string }>}
  */
 async function readGitFileAtRef(resolvedRef, relPath, resolvedLabel, fileName, dir) {
-    const cmd = `git show ${resolvedRef}:${relPath}`;
+    const cmd = `git show ${resolvedRef}:./${fileName}`;
     log(`readGitFileAtRef: running: ${cmd} (cwd: ${dir})`);
     return execAsync(cmd, {cwd: dir, maxBuffer: 10 * 1024 * 1024}).catch(err => {
         error(`readGitFileAtRef failed: ${err.message || String(err)}`);
